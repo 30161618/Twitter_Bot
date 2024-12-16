@@ -1,9 +1,10 @@
 import os
 import tweepy
-import pyshorteners
+import requests
+from bs4 import BeautifulSoup
+import random
 import schedule
 import time
-import random
 from dotenv import load_dotenv
 
 # --- Load Environment Variables ---
@@ -18,8 +19,7 @@ TWITTER_ACCESS_TOKEN_SECRET = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
 if not all([TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET]):
     raise ValueError("Error: Missing Twitter API credentials. Please set the environment variables.")
 
-# --- Initialize APIs ---
-# Twitter API setup
+# --- Initialize Twitter API ---
 def twitter_api_setup():
     auth = tweepy.OAuth1UserHandler(
         TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
@@ -29,34 +29,42 @@ def twitter_api_setup():
 twitter_api = twitter_api_setup()
 
 # --- Helper Functions ---
-# Fetch trending topics from Twitter
-def fetch_trending_topics(location_woeid=1):  # WOEID 1 = Worldwide
-    trends = twitter_api.get_place_trends(location_woeid)
-    topics = [trend['name'] for trend in trends[0]['trends'] if trend['name'].startswith('#')]
-    return topics[:5]  # Limit to top 5 trends
+# Scrape trending technology topics
+def scrape_trending_tech():
+    try:
+        url = "https://techcrunch.com/"  # Replace with other tech news websites as needed
+        response = requests.get(url)
+        response.raise_for_status()
 
-# Shorten URLs for tweets
-def shorten_url(url):
-    s = pyshorteners.Shortener()
-    return s.tinyurl.short(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract article titles from TechCrunch (update selector based on the website structure)
+        articles = soup.select("h2.post-block__title > a")
+        trends = [article.get_text(strip=True) for article in articles[:5]]  # Get top 5 articles
+        return trends
+    except Exception as e:
+        print(f"Error scraping trends: {e}")
+        return []
 
-# Create engaging tweet content
-def create_tweet(trend):
-    emoji = random.choice(['🔥', '📚', '✨', '💻', '🚀', '📱'])
-    tweet_templates = [
-        f"{emoji} {trend} is trending! Stay ahead with the latest updates. #ad",
-        f"Trending now: {trend}! What are your thoughts? Let us know! 🚀",
-        f"Don’t miss out on {trend}! It’s the talk of the town. #ad"
+# Generate a Tweet with hashtags and emojis
+def create_tweet(topic):
+    emojis = ['🤖', '🚀', '💡', '📱', '✨', '🌐', '🔮', '📈']
+    hashtags = ['#TechNews', '#AI', '#Innovation', '#FutureTech', '#Trending', '#TechTrends']
+    
+    tweet_template = [
+        f"{random.choice(emojis)} {topic}. Stay updated with the latest tech trends! {random.choice(hashtags)}",
+        f"{random.choice(emojis)} Breaking: {topic}. What are your thoughts? {random.choice(hashtags)}",
+        f"Tech enthusiasts! {topic} is making waves. Don’t miss out. {random.choice(hashtags)}"
     ]
-    return random.choice(tweet_templates)
+    return random.choice(tweet_template)[:250]  # Limit to 250 characters
 
 # Post tweets automatically
-def post_affiliate_tweets():
-    trends = fetch_trending_topics()
-    print(f"Fetched trends: {trends}")
+def post_tech_tweets():
+    topics = scrape_trending_tech()
+    print(f"Fetched topics: {topics}")
 
-    for trend in trends:
-        tweet = create_tweet(trend)
+    for topic in topics:
+        tweet = create_tweet(topic)
         try:
             twitter_api.update_status(tweet)
             print(f"Tweeted: {tweet}")
@@ -64,20 +72,11 @@ def post_affiliate_tweets():
             print(f"Error posting tweet: {e}")
 
 # --- Scheduler ---
-# Run the bot every 2 hours
-schedule.every(2).hours.do(post_affiliate_tweets)
+# Run the bot every hour
+schedule.every(1).hours.do(post_tech_tweets)
 
 # Keep the script running
 print("Bot is running...")
 while True:
     schedule.run_pending()
     time.sleep(1)
-
-# --- Optimization Tips ---
-# 1. **Relevance Filtering**: Filter trends for specific topics like technology, books, or gadgets.
-# 2. **Rate-Limit Handling**: Respect Twitter's API rate limits. Add delays between API calls if necessary.
-# 3. **Error Handling**: Use try-except blocks to handle network issues or invalid API responses.
-# 4. **Tweet Variation**: Use random templates and emojis to keep tweets engaging and fresh.
-# 5. **Compliance**: Always include hashtags like #ad to comply with affiliate marketing guidelines.
-# 6. **Monitoring**: Log API responses and errors for debugging and performance monitoring.
-# 7. **Scalability**: Consider deploying the bot to a server for 24/7 operation, such as Heroku or AWS.
