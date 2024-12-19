@@ -1,112 +1,123 @@
-import os
-import openai
+import feedparser
 import tweepy
-import requests
-from bs4 import BeautifulSoup
-from apscheduler.schedulers.blocking import BlockingScheduler
-from dotenv import load_dotenv
-import logging
-import time
 import random
+import logging
+from dotenv import load_dotenv
+import os
+import time
+
+# Load environment variables
+load_dotenv()
+
+# Twitter API credentials from environment variables
+BEARER_TOKEN = os.getenv('BEARER_TOKEN')
+API_KEY = os.getenv('API_KEY')
+API_SECRET_KEY = os.getenv('API_SECRET_KEY')
+ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
+ACCESS_TOKEN_SECRET = os.getenv('ACCESS_TOKEN_SECRET')
+
+# Check if all required credentials are loaded
+if not all([BEARER_TOKEN, API_KEY, API_SECRET_KEY, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
+    raise EnvironmentError("Missing Twitter API credentials in environment variables.")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load environment variables
-load_dotenv()
-TWITTER_API_KEY = os.getenv('TWITTER_API_KEY')
-TWITTER_API_SECRET = os.getenv('TWITTER_API_SECRET')
-TWITTER_ACCESS_TOKEN = os.getenv('TWITTER_ACCESS_TOKEN')
-TWITTER_ACCESS_TOKEN_SECRET = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+# Initialize the Tweepy client for Twitter API v2
+client = tweepy.Client(bearer_token=BEARER_TOKEN, 
+                        consumer_key=API_KEY, 
+                        consumer_secret=API_SECRET_KEY, 
+                        access_token=ACCESS_TOKEN, 
+                        access_token_secret=ACCESS_TOKEN_SECRET)
 
-# Check for missing environment variables
-if not all([TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET, OPENAI_API_KEY]):
-    logging.error("Missing one or more required environment variables. Please check your .env file.")
-    exit(1)
+# RSS feed URLs for technology
+rss_feeds = [
+    'https://techcrunch.com/feed/',
+    'https://www.theverge.com/rss/index.xml',
+    'https://www.wired.com/feed/rss',
+    'https://www.engadget.com/rss.xml',
+    'https://www.cnet.com/rss/news/',
+]
 
-# Set up Twitter API for posting tweets
-auth = tweepy.OAuth1UserHandler(
-    TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
-)
-twitter_api = tweepy.API(auth)
+# Function to fetch and parse RSS feeds
+def fetch_rss_feeds(feeds):
+    articles = []
+    for feed in feeds:
+        logging.info(f'Fetching feed: {feed}')
+        try:
+            parsed_feed = feedparser.parse(feed)
+            if parsed_feed.bozo:
+                logging.warning(f'Failed to parse feed: {feed}')
+                continue
+            for entry in parsed_feed.entries:
+                articles.append(entry.title + " " + entry.link)
+                logging.info(f'Found article: {entry.title}')
+        except Exception as e:
+            logging.error(f'Error fetching feed {feed}: {e}')
+    return articles
 
-# Set OpenAI API key
-openai.api_key = OPENAI_API_KEY
+# Function to filter tweets based on inclusion and exclusion keywords
+def filter_tweets(tweets):
+    inclusion_keywords = ['technology', 'tech news', 'AI', 'artificial intelligence', 'latest gadgets']
+    exclusion_keywords = ['war', 'child', 'children', 'teens', 'military']
 
-# Scrape Technology News
-def fetch_tech_news():
-    logging.info("Fetching technology news from TechCrunch...")
-    url = "https://techcrunch.com/"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        articles = soup.select("h2.post-block__title > a")
-        logging.info(f"Found {len(articles)} articles.")
-        return [article.get_text(strip=True) for article in articles[:5]]
-    except Exception as e:
-        logging.error(f"Error fetching news: {e}")
-        return []
+    filtered_tweets = [
+        tweet for tweet in tweets
+        if any(keyword.lower() in tweet.lower() for keyword in inclusion_keywords) and
+        not any(keyword.lower() in tweet.lower() for keyword in exclusion_keywords)
+    ]
 
-# Generate Tweets with AI
-def generate_tweet(topic):
-    logging.info(f"Generating a tweet for topic: {topic}")
-    if "war" in topic.lower():
-        logging.warning(f"Skipping topic due to sensitive content: {topic}")
+    return filtered_tweets
+
+# Function to create a tweet
+def create_tweet(articles):
+    if not articles:
+        logging.warning('No articles available to create a tweet.')
         return None
 
-    prompt = f"Summarize this tech topic into a fun, engaging tweet with emojis and hashtags under 250 characters: {topic}"
+    filtered_articles = filter_tweets(articles)
+    if not filtered_articles:
+        logging.warning('No suitable articles found after filtering.')
+        return None
+
+    tweet_content = random.choice(filtered_articles)
+    emojis = ["\ud83d\ude80", "\ud83d\udcbb", "\ud83d\udcf1", "\ud83d\uddde\ufe0f", "\ud83d\udd0d"]
+    tweet_content += " " + random.choice(emojis)
+
+    if len(tweet_content) > 280:
+        tweet_content = tweet_content[:277] + "..."
+        logging.info('Tweet content truncated to fit Twitter character limit.')
+
+    logging.info(f'Created tweet: {tweet_content}')
+    return tweet_content
+
+# Function to post a tweet
+def post_tweet(tweet, dry_run=True):
+    if dry_run:
+        logging.info(f'[DRY RUN] Tweet content: {tweet}')
+        return
+
     try:
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt=prompt,
-            max_tokens=100,
-            temperature=0.7
-        )
-        tweet = response.choices[0].text.strip()
-        logging.info(f"Generated tweet: {tweet}")
-        return tweet
+        client.create_tweet(text=tweet)
+        logging.info("Tweet posted successfully!")
     except Exception as e:
-        logging.error(f"Error generating tweet: {e}")
-        return "\ud83d\ude80 Stay tuned for more tech updates! #TechNews #AI"
+        logging.error(f"Error posting tweet: {e}")
 
-# Post a Tweet with retry mechanism
-def post_tweet():
-    logging.info("Starting the tweet posting process...")
-    tech_news = fetch_tech_news()
+# Main function to handle tweeting and scheduling
+def main():
+    logging.info('Starting the bot.')
+    while True:
+        # Post from RSS feeds
+        articles = fetch_rss_feeds(rss_feeds)
+        tweet = create_tweet(articles)
+        if tweet:
+            post_tweet(tweet, dry_run=False)  # Set dry_run=False to enable actual tweeting
+        else:
+            logging.warning('No tweet was created.')
 
-    if not tech_news:
-        logging.warning("No articles found. Falling back to default topic.")
-        tech_news = ["Exploring the latest in technology and innovation!"]
-
-    for topic in tech_news:
-        tweet = generate_tweet(topic)
-        if not tweet:
-            continue  # Skip tweeting if sensitive content or generation fails
-
-        retries = 3
-        while retries > 0:
-            try:
-                twitter_api.update_status(tweet)
-                logging.info(f"Successfully tweeted: {tweet}")
-                break  # Exit retry loop if tweet is successful
-            except tweepy.errors.TweepyException as e:
-                if 'rate limit' in str(e).lower():
-                    logging.warning("Rate limit reached. Retrying in 15 minutes...")
-                    time.sleep(15 * 60)  # Wait for 15 minutes
-                else:
-                    logging.error(f"Error posting tweet: {e}")
-                    break
-            retries -= 1
-
-# Scheduler for Automation
-scheduler = BlockingScheduler()
-scheduler.add_job(post_tweet, 'interval', hours=1)
+        # Wait for 1 week before the next cycle
+        logging.info("Sleeping for 1 hour...")
+        time.sleep(3600)  # 1 Hour = 3,600 seconds
 
 if __name__ == "__main__":
-    logging.info("Bot is starting...")
-    try:
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("Bot is shutting down...")
+    main()
