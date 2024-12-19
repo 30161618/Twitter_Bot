@@ -41,6 +41,32 @@ rss_feeds = [
     'https://www.cnet.com/rss/news/',
 ]
 
+# Generated Hashtags
+generated_hashtags = {
+    "artificialintelligence": "#AIRevolution",
+    "ai": "#SmartTech",
+    "machinelearning": "#DataDrivenAI",
+    "deeplearning": "#NeuralInnovations",
+    "datascience": "#InsightfulData",
+    "nlp": "#LanguageTech",
+    "tech": "#TechTrends2024",
+    "technology": "#FutureTech",
+    "innovation": "#InnovateToday",
+    "digitaltransformation": "#DigitalShift",
+    "cybersecurity": "#SecureTech",
+    "robotics": "#RoboticFuture",
+    "automation": "#AutomateEverything",
+    "metaverse": "#VirtualWorlds",
+    "technews": "#TechUpdate2024",
+    "generativeai": "#CreativeAI",
+    "aiethics": "#EthicalAI",
+    "aiforgood": "#AIForChange",
+    "future": "#TechFuture",
+    "coding": "#CodeLife",
+    "programming": "#DevCommunity",
+    "developer": "#TechCreators"
+}
+
 # Function to fetch and parse RSS feeds
 def fetch_rss_feeds(feeds):
     articles = []
@@ -73,39 +99,26 @@ def filter_tweets(tweets):
 
 # Function to clean the tweet
 def clean_tweet(tweet):
-    """
-    Cleans the tweet by removing punctuation and converting it to lowercase.
-    """
     cleaned_tweet = re.sub(r'[^\w\s]', '', tweet.lower())
     return cleaned_tweet
 
 # Function to extract keywords from the cleaned tweet
 def extract_keywords(cleaned_tweet):
-    """
-    Extracts keywords from the cleaned tweet.
-    """
     keywords = cleaned_tweet.split()
     return keywords
 
-# Function to generate hashtags from keywords
-def generate_hashtags(keywords):
-    """
-    Generates hashtags from the list of keywords.
-    """
-    hashtags = ['#' + keyword for keyword in keywords if len(keyword) > 2]
-    return hashtags
-
 # Function to create relevant hashtags for the tweet
 def create_relevant_hashtags(tweet):
-    """
-    Creates relevant hashtags for the given tweet.
-    """
     cleaned_tweet = clean_tweet(tweet)
     keywords = extract_keywords(cleaned_tweet)
     keyword_counts = Counter(keywords)
     most_common_keywords = [keyword for keyword, count in keyword_counts.most_common(5)]
-    hashtags = generate_hashtags(most_common_keywords)
-    return hashtags
+    
+    # Map keywords to generated hashtags
+    hashtags = [ generated_hashtags.get(keyword, '') for keyword in most_common_keywords if keyword in generated_hashtags]
+    
+    # Limit to 5 hashtags
+    return hashtags[:5]
 
 # Function to create a tweet
 def create_tweet(articles):
@@ -127,7 +140,7 @@ def create_tweet(articles):
     emojis = ["\ud83d\ude80", "\ud83d\udcbb", "\ud83d\udcf1", "\ud83d\uddde\ufe0f", "\ud83d\udd0d"]
     tweet_content += " " + random.choice(emojis)
 
-    if len(tweet_content ) > 280:
+    if len(tweet_content) > 280:
         tweet_content = tweet_content[:277] + "..."
         logging.info('Tweet content truncated to fit Twitter character limit.')
 
