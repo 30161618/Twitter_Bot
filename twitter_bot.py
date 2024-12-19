@@ -173,7 +173,7 @@ def main():
 
         # Wait for 1 hour before the next cycle
         logging.info("Sleeping for 1 hour...")
-        time.sleep(3600)  # 1 Hour = 3,600 seconds
+        time.sleep(5400)  # 1.5 Hours = 5,400 seconds
 
 if __name__ == "__main__":
     main()
