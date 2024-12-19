@@ -172,7 +172,7 @@ def main():
             logging.warning('No tweet was created.')
 
         # Wait for 1 hour before the next cycle
-        logging.info("Sleeping for 1 hour...")
+        logging.info("Sleeping for 1.5 hours...")
         time.sleep(5400)  # 1.5 Hours = 5,400 seconds
 
 if __name__ == "__main__":
