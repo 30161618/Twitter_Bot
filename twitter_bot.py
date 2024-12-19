@@ -5,6 +5,8 @@ import logging
 from dotenv import load_dotenv
 import os
 import time
+import re
+from collections import Counter
 
 # Load environment variables
 load_dotenv()
@@ -69,6 +71,42 @@ def filter_tweets(tweets):
 
     return filtered_tweets
 
+# Function to clean the tweet
+def clean_tweet(tweet):
+    """
+    Cleans the tweet by removing punctuation and converting it to lowercase.
+    """
+    cleaned_tweet = re.sub(r'[^\w\s]', '', tweet.lower())
+    return cleaned_tweet
+
+# Function to extract keywords from the cleaned tweet
+def extract_keywords(cleaned_tweet):
+    """
+    Extracts keywords from the cleaned tweet.
+    """
+    keywords = cleaned_tweet.split()
+    return keywords
+
+# Function to generate hashtags from keywords
+def generate_hashtags(keywords):
+    """
+    Generates hashtags from the list of keywords.
+    """
+    hashtags = ['#' + keyword for keyword in keywords if len(keyword) > 2]
+    return hashtags
+
+# Function to create relevant hashtags for the tweet
+def create_relevant_hashtags(tweet):
+    """
+    Creates relevant hashtags for the given tweet.
+    """
+    cleaned_tweet = clean_tweet(tweet)
+    keywords = extract_keywords(cleaned_tweet)
+    keyword_counts = Counter(keywords)
+    most_common_keywords = [keyword for keyword, count in keyword_counts.most_common(5)]
+    hashtags = generate_hashtags(most_common_keywords)
+    return hashtags
+
 # Function to create a tweet
 def create_tweet(articles):
     if not articles:
@@ -81,10 +119,15 @@ def create_tweet(articles):
         return None
 
     tweet_content = random.choice(filtered_articles)
+    hashtags = create_relevant_hashtags(tweet_content)
+    
+    if hashtags:
+        tweet_content += " " + " ".join(hashtags)
+
     emojis = ["\ud83d\ude80", "\ud83d\udcbb", "\ud83d\udcf1", "\ud83d\uddde\ufe0f", "\ud83d\udd0d"]
     tweet_content += " " + random.choice(emojis)
 
-    if len(tweet_content) > 280:
+    if len(tweet_content ) > 280:
         tweet_content = tweet_content[:277] + "..."
         logging.info('Tweet content truncated to fit Twitter character limit.')
 
@@ -115,7 +158,7 @@ def main():
         else:
             logging.warning('No tweet was created.')
 
-        # Wait for 1 week before the next cycle
+        # Wait for 1 hour before the next cycle
         logging.info("Sleeping for 1 hour...")
         time.sleep(3600)  # 1 Hour = 3,600 seconds
 
