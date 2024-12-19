@@ -165,7 +165,7 @@ def main():
         articles = fetch_rss_feeds(rss_feeds)
         tweet = create_tweet(articles)
         if tweet:
-            post_tweet(tweet, dry_run=True)  # Set dry_run=False to enable actual tweeting
+            post_tweet(tweet, dry_run=False)  # Set dry_run=False to enable actual tweeting
         else:
             logging.warning('No tweet was created.')
 
