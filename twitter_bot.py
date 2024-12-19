@@ -36,8 +36,6 @@ client = tweepy.Client(bearer_token=BEARER_TOKEN,
 rss_feeds = [
     'https://techcrunch.com/feed/',
     'https://www.theverge.com/rss/index.xml',
-    'https://www.wired.com/feed/rss',
-    'https://www.engadget.com/rss.xml',
     'https://www.cnet.com/rss/news/',
 ]
 
@@ -167,13 +165,13 @@ def main():
         articles = fetch_rss_feeds(rss_feeds)
         tweet = create_tweet(articles)
         if tweet:
-            post_tweet(tweet, dry_run=False)  # Set dry_run=False to enable actual tweeting
+            post_tweet(tweet, dry_run=True)  # Set dry_run=False to enable actual tweeting
         else:
             logging.warning('No tweet was created.')
 
         # Wait for 1 hour before the next cycle
-        logging.info("Sleeping for 1.5 hours...")
-        time.sleep(5400)  # 1.5 Hours = 5,400 seconds
+        logging.info("Sleeping for 2 hours...")
+        time.sleep(7200)  # 2 Hours = 7,200 seconds
 
 if __name__ == "__main__":
     main()
