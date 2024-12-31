@@ -148,7 +148,7 @@ def main():
             posted_articles.append(tweet)  # Add the posted tweet to the list
             save_posted_articles(posted_articles)  # Save updated posted articles
         
-        time.sleep(3600)  # Wait for an hour before fetching again
+        time.sleep(21600)  # Wait for six hours before fetching again
 
 if __name__ == "__main__":
     main()
